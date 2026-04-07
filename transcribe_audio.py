@@ -161,7 +161,7 @@ class TranscribeOptionsWindow:
     After .show(), read .cancelled to check whether the user confirmed.
     """
 
-    def __init__(self, default_srt_path: str = ''):
+    def __init__(self, default_srt_path='', default_start_frame=1):
         self.cancelled      = True
         self.model          = 'base'
         self.language       = None
@@ -169,11 +169,12 @@ class TranscribeOptionsWindow:
         self.do_markers     = True
         self.do_captions    = False
         self.srt_path       = default_srt_path
-        self._build(default_srt_path)
+        self.start_frame    = default_start_frame
+        self._build(default_srt_path, default_start_frame)
 
     # ---------------------------------------------------------------------- #
 
-    def _build(self, default_srt_path: str):
+    def _build(self, default_srt_path, default_start_frame):
 
         def confirm():
             self.model       = self.model_menu.text()
@@ -183,6 +184,10 @@ class TranscribeOptionsWindow:
             self.do_markers  = self.markers_btn.isChecked()
             self.do_captions = self.captions_btn.isChecked()
             self.srt_path    = self.srt_path_entry.text()
+            try:
+                self.start_frame = int(self.start_frame_entry.text())
+            except ValueError:
+                self.start_frame = 1
             if not self.do_srt and not self.do_markers and not self.do_captions:
                 PyFlameMessageWindow(
                     message='Select at least one output type.',
@@ -263,6 +268,11 @@ class TranscribeOptionsWindow:
         self.srt_path_entry = PyFlameLineEdit(text=default_srt_path)
         self.browse_btn     = PyFlamePushButton(text='Browse', connect=browse_srt)
 
+        # ── Marker start frame ─────────────────────────────────────────────
+
+        start_frame_label      = PyFlameLabel(text='Marker Start Frame')
+        self.start_frame_entry = PyFlameLineEdit(text=str(default_start_frame))
+
         # ── Action buttons ─────────────────────────────────────────────────
 
         cancel_btn    = PyFlamePushButton(text='Cancel',    connect=cancel)
@@ -270,33 +280,35 @@ class TranscribeOptionsWindow:
 
         # ── Layout ────────────────────────────────────────────────────────
         #
-        #  col:  0           1           2             3          4          5
-        #  row 0: [── Transcription Settings ──────────────────────────────]
-        #  row 1: [Model lbl] [model menu ──────] [Lang lbl] [lang menu ──────]
+        #  col:  0                1           2             3          4          5
+        #  row 0: [── Transcription Settings ───────────────────────────────────]
+        #  row 1: [Model lbl] [model menu ──────] [Lang lbl] [lang menu ─────────]
         #  row 2: (spacer)
-        #  row 3: [── Output Options ──────────────────────────────────────]
-        #  row 4: [SRT btn ──────────] [Markers btn ─────] [Captions btn ──]
+        #  row 3: [── Output Options ───────────────────────────────────────────]
+        #  row 4: [SRT btn ──────────] [Markers btn ─────────] [Captions btn ───]
         #  row 5: (spacer)
-        #  row 6: [SRT path lbl] [path entry ──────────────────] [Browse]
-        #  row 7: (spacer)
+        #  row 6: [SRT path lbl] [path entry ────────────────────────] [Browse]
+        #  row 7: [Marker Start Frame lbl] [entry]
         #  row 8: (spacer)
-        #  row 9:                                         [Cancel] [Transcribe]
+        #  row 9:                                              [Cancel] [Transcribe]
 
         gl = self.window.grid_layout
-        gl.addWidget(settings_label,       0, 0, 1, 6)
-        gl.addWidget(model_label,          1, 0)
-        gl.addWidget(self.model_menu,      1, 1, 1, 2)
-        gl.addWidget(language_label,       1, 3)
-        gl.addWidget(self.language_menu,   1, 4, 1, 2)
-        gl.addWidget(output_label,         3, 0, 1, 6)
-        gl.addWidget(self.srt_btn,         4, 0, 1, 2)
-        gl.addWidget(self.markers_btn,     4, 2, 1, 2)
-        gl.addWidget(self.captions_btn,    4, 4, 1, 2)
-        gl.addWidget(srt_path_label,       6, 0)
-        gl.addWidget(self.srt_path_entry,  6, 1, 1, 4)
-        gl.addWidget(self.browse_btn,      6, 5)
-        gl.addWidget(cancel_btn,           9, 4)
-        gl.addWidget(transcribe_btn,       9, 5)
+        gl.addWidget(settings_label,          0, 0, 1, 6)
+        gl.addWidget(model_label,             1, 0)
+        gl.addWidget(self.model_menu,         1, 1, 1, 2)
+        gl.addWidget(language_label,          1, 3)
+        gl.addWidget(self.language_menu,      1, 4, 1, 2)
+        gl.addWidget(output_label,            3, 0, 1, 6)
+        gl.addWidget(self.srt_btn,            4, 0, 1, 2)
+        gl.addWidget(self.markers_btn,        4, 2, 1, 2)
+        gl.addWidget(self.captions_btn,       4, 4, 1, 2)
+        gl.addWidget(srt_path_label,          6, 0)
+        gl.addWidget(self.srt_path_entry,     6, 1, 1, 4)
+        gl.addWidget(self.browse_btn,         6, 5)
+        gl.addWidget(start_frame_label,       7, 0)
+        gl.addWidget(self.start_frame_entry,  7, 1)
+        gl.addWidget(cancel_btn,              9, 4)
+        gl.addWidget(transcribe_btn,          9, 5)
 
         self.window.exec()
 
@@ -344,7 +356,10 @@ class TranscribeAudio:
         srt_dir       = str(Path(file_path).parent)
         default_srt   = os.path.join(srt_dir, f'{clip_name}.srt')
 
-        opts = TranscribeOptionsWindow(default_srt_path=default_srt)
+        opts = TranscribeOptionsWindow(
+            default_srt_path=default_srt,
+            default_start_frame=int(self.segment.start_frame),
+        )
         if opts.cancelled:
             return
 
@@ -404,7 +419,7 @@ class TranscribeAudio:
 
             if opts.do_markers:
                 try:
-                    count = self._create_markers(segments, fps)
+                    count = self._create_markers(segments, fps, opts.start_frame)
                     results.append(f'Markers:   {count} created on timeline')
                 except Exception as exc:
                     results.append(f'Markers FAILED: {exc}')
@@ -535,15 +550,16 @@ class TranscribeAudio:
 
     # ---------------------------------------------------------------------- #
 
-    def _create_markers(self, segments, fps):
+    def _create_markers(self, segments, fps, start_frame):
         """
         Create sequence-level markers on the open timeline clip.
-        Uses segment.start_frame (confirmed int in Flame 2026) for positioning.
+        start_frame is supplied by the user via the dialog (defaults to
+        segment.start_frame but can be overridden if Flame reports it wrong).
         """
         import flame
 
         seq       = flame.timeline.clip
-        rec_start = int(self.segment.start_frame)
+        rec_start = start_frame
         created   = 0
 
         for seg in segments:
