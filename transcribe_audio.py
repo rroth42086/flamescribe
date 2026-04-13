@@ -19,6 +19,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 # Make PyFlame UI classes available from the installed logik_portal library.
 sys.path.insert(0, '/opt/Autodesk/shared/python/logik_portal')
